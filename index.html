@@ -1,0 +1,1573 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>El Grimorio del Moderador - Ultimate Werewolf</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800;900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- React & Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        cinzel: ['Cinzel', 'serif'],
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        grim: {
+                            bg: '#080c14',
+                            card: '#111827',
+                            border: '#1f293d',
+                            accent: '#d97706',
+                            gold: '#f59e0b',
+                            village: '#1e3a8a',
+                            werewolf: '#850e05',
+                            vampire: '#4d2871',
+                            cult: '#216e2e',
+                            ghost: '#0284c7'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #060911;
+            color: #F3F4F6;
+            font-family: 'Inter', sans-serif;
+            background-image: radial-gradient(circle at 50% 0%, #17132a 0%, #060911 80%);
+            min-height: 100vh;
+        }
+        .cinzel-font {
+            font-family: 'Cinzel', serif;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #080c14;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1f293d;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #d97706;
+        }
+        .gold-glow {
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.25);
+        }
+        .purple-glow {
+            box-shadow: 0 0 20px rgba(147, 51, 234, 0.25);
+        }
+        .blue-glow {
+            box-shadow: 0 0 20px rgba(14, 165, 233, 0.25);
+        }
+        .red-glow {
+            box-shadow: 0 0 20px rgba(225, 29, 72, 0.25);
+        }
+    </style>
+</head>
+<body class="antialiased selection:bg-amber-500 selection:text-black">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        // --- BASE DE DATOS BILINGÜE CON EXPLICACIONES TÁCTICAS Y TEXTOS EXACTOS ---
+        const MASTER_ROLES_DB = [
+            // PUEBLO / ALDEA
+            { 
+                id: "VILLAGER", 
+                titleEn: "VILLAGER", 
+                titleEs: "ALDEANO", 
+                team: "PUEBLO", 
+                desc: "Encuentra a los hombres lobo y elimínalos", 
+                wakeNight1: 0, 
+                wakeNight2: 0, 
+                icon: "fa-user",
+                whyWake: "No despierta de noche. Su único objetivo es debatir de día para descubrir y ejecutar a los hombres lobo."
+            },
+            { 
+                id: "SEER", 
+                titleEn: "SEER", 
+                titleEs: "VIDENTE", 
+                team: "PUEBLO", 
+                desc: "Cada noche, elige a un jugador para descubrir si es un aldeano o un hombre lobo", 
+                wakeNight1: 70, 
+                wakeNight2: 40, 
+                icon: "fa-eye",
+                whyWake: "Despierta cada noche para investigar a un jugador. El moderador debe responderle con señas secretas: una 'V' para Aldeano o una 'W'/garras para Hombre Lobo."
+            },
+            { 
+                id: "MYSTIC_SEER", 
+                titleEn: "MYSTIC SEER", 
+                titleEs: "VIDENTE MÍSTICA", 
+                team: "PUEBLO", 
+                desc: "Cada noche, señala a un jugador y descubre su rol exacto.", 
+                wakeNight1: 71, 
+                wakeNight2: 41, 
+                icon: "fa-gem",
+                whyWake: "Despierta cada noche para conocer el rol exacto de un jugador. El moderador le indicará mediante gestos o la carta correspondiente el personaje específico."
+            },
+            { 
+                id: "AURA_SEER", 
+                titleEn: "AURA SEER", 
+                titleEs: "VIDENTE DE AURAS", 
+                team: "PUEBLO", 
+                desc: "Elige a un jugador cada noche para comprobar si no es un hombre lobo ni un aldeano.", 
+                wakeNight1: 72, 
+                wakeNight2: 42, 
+                icon: "fa-wand-magic-sparkles",
+                whyWake: "Despierta para buscar personajes con roles especiales. El moderador responde 'Sí' (pulgar arriba) si el jugador NO es un Aldeano común ni un Hombre Lobo normal."
+            },
+            { 
+                id: "APPRENTICE_SEER", 
+                titleEn: "APPRENTICE SEER", 
+                titleEs: "APRENDIZ DE VIDENTE", 
+                team: "PUEBLO", 
+                desc: "Si el Vidente es eliminado, te conviertes en el vidente y te despiertas cada noche para buscar a los hombres lobo.", 
+                wakeNight1: 0, 
+                wakeNight2: 43, 
+                icon: "fa-hat-wizard",
+                whyWake: "Solo despierta si la Vidente principal ha muerto. Hereda su poder y comienza a investigar jugadores exactamente como lo hacía la Vidente."
+            },
+            { 
+                id: "BODYGUARD", 
+                titleEn: "BODYGUARD", 
+                titleEs: "ESCOLTA / GUARDAESPALDAS", 
+                team: "PUEBLO", 
+                desc: "Cada noche, elige a un jugador que no pueda ser eliminado esa noche", 
+                wakeNight1: 90, 
+                wakeNight2: 90, 
+                icon: "fa-shield-halved",
+                whyWake: "Despierta para proteger a un jugador de los ataques nocturnos. El jugador elegido queda a salvo de morir esa noche (no puede elegirse a sí mismo ni al mismo jugador dos noches seguidas)."
+            },
+            { 
+                id: "PRIEST", 
+                titleEn: "PRIEST", 
+                titleEs: "SACERDOTE", 
+                team: "PUEBLO", 
+                desc: "Una noche por partida, elige a un jugador para protegerlo. Ese jugador no podrá ser eliminado durante la noche.", 
+                wakeNight1: 91, 
+                wakeNight2: 91, 
+                icon: "fa-cross",
+                whyWake: "Tiene una bendición de uso único. Despierta para proteger a un jugador con poder sagrado. El siguiente intento de eliminarlo por cualquier medio fallará."
+            },
+            { 
+                id: "WITCH", 
+                titleEn: "WITCH", 
+                titleEs: "BRUJA", 
+                team: "PUEBLO", 
+                desc: "Puedes salvar o eliminar a un jugador durante la noche, una sola vez por partida.", 
+                wakeNight1: 80, 
+                wakeNight2: 60, 
+                icon: "fa-flask-vial",
+                whyWake: "Se le enseña quién fue el objetivo de los hombres lobo esa noche. Puede usar su Poción de Curación para salvarlo y/o su Poción de Veneno para matar a otro jugador (una vez cada una por partida)."
+            },
+            { 
+                id: "HUNTER", 
+                titleEn: "HUNTER", 
+                titleEs: "CAZADOR", 
+                team: "PUEBLO", 
+                desc: "Si eres eliminado, puedes eliminar inmediatamente a otro jugador.", 
+                wakeNight1: 0, 
+                wakeNight2: 0, 
+                icon: "fa-crosshairs",
+                whyWake: "No despierta de noche. Su habilidad es reactiva: al morir (de día o noche), señala inmediatamente a un jugador para eliminarlo junto a él."
+            },
+            { 
+                id: "HUNTRESS", 
+                titleEn: "HUNTRESS", 
+                titleEs: "CAZADORA", 
+                team: "PUEBLO", 
+                desc: "Puedes eliminar a un jugador por la noche una vez por juego.", 
+                wakeNight1: 81, 
+                wakeNight2: 61, 
+                icon: "fa-bow-arrow",
+                whyWake: "Posee un disparo nocturno de uso único por partida. Despierta y señala al jugador que desea eliminar esa noche."
+            },
+            { 
+                id: "PRINCE", 
+                titleEn: "PRINCE", 
+                titleEs: "PRÍNCIPE", 
+                team: "PUEBLO", 
+                desc: "Si resultas elegido para ser eliminado, tu rol se revela y te quedas.", 
+                wakeNight1: 0, 
+                wakeNight2: 0, 
+                icon: "fa-crown",
+                whyWake: "No despierta de noche. Si el pueblo vota para ejecutarlo durante el día, revela su carta y se salva automáticamente."
+            },
+            { 
+                id: "MAYOR", 
+                titleEn: "MAYOR", 
+                titleEs: "ALCALDE", 
+                team: "PUEBLO", 
+                desc: "Tu voto cuenta el doble.", 
+                wakeNight1: 0, 
+                wakeNight2: 0, 
+                icon: "fa-award",
+                whyWake: "No requiere llamado nocturno obligatorio (a menos que se juegue en secreto). Su voto diurno se contabiliza por dos."
+            },
+            { 
+                id: "PACIFIST", 
+                titleEn: "PACIFIST", 
+                titleEs: "PACIFISTA", 
+                team: "PUEBLO", 
+                desc: "Siempre debes votar para que los jugadores no sean eliminados.", 
+                wakeNight1: 0, 
+                wakeNight2: 0, 
+                icon: "fa-dove",
+                whyWake: "No despierta de noche. Obligatoriamente debe votar en contra de ejecutar jugadores durante la fase diurna."
+            },
+            { 
+                id: "SPELLCASTER", 
+                titleEn: "SPELLCASTER", 
+                titleEs: "LANZACONJUROS", 
+                team: "PUEBLO", 
+                desc: "Cada noche, elige a un jugador que no podrá hablar al día siguiente.", 
+                wakeNight1: 85, 
+                wakeNight2: 80, 
+                icon: "fa-volume-xmark",
+                whyWake: "Despierta para silenciar a un jugador durante la jornada diurna siguiente. El silenciado no podrá hablar en los debates (solo comunicarse con gestos/escritos)."
+            },
+            { 
+                id: "OLD_HAG", 
+                titleEn: "OLD HAG", 
+                titleEs: "VIEJA BRUJA", 
+                team: "PUEBLO", 
+                desc: "Cada noche, elige a un jugador para que abandone la Aldea durante el día siguiente.", 
+                wakeNight1: 86, 
+                wakeNight2: 81, 
+                icon: "fa-house-crack",
+                whyWake: "Despierta para exiliar a un participante. El jugador elegido debe retirarse de la mesa durante el debate del día siguiente (no puede hablar ni votar)."
+            },
+            { 
+                id: "TROUBLEMAKER", 
+                titleEn: "TROUBLEMAKER", 
+                titleEs: "ALBOROTADORA", 
+                team: "PUEBLO", 
+                desc: "Una noche por partida, provoca líos pidiendo que se elimine a jugadores al día siguiente.", 
+                wakeNight1: 87, 
+                wakeNight2: 82, 
+                icon: "fa-bolt",
+                whyWake: "Despierta para activar su habilidad de uso único por partida, forzando dos eliminaciones al día siguiente."
+            },
+            { 
+                id: "PI", 
+                titleEn: "P.I.", 
+                titleEs: "INVESTIGADOR PARANORMAL", 
+                team: "PUEBLO", 
+                desc: "Una vez por partida, elige a un jugador. Se te indicará si ese jugador o uno de sus vecinos es un hombre lobo.", 
+                wakeNight1: 75, 
+                wakeNight2: 50, 
+                icon: "fa-magnifying-glass",
+                whyWake: "Habilidad de un solo uso. Señala a un jugador y el moderador confirma si ese objetivo o cualquiera de sus dos vecinos inmediatos es un Hombre Lobo."
+            },
+            { 
+                id: "MASON", 
+                titleEn: "MASON", 
+                titleEs: "MASÓN", 
+                team: "PUEBLO", 
+                desc: "La primera noche, despierta para ver quién es el otro masón.", 
+                wakeNight1: 30, 
+                wakeNight2: 0, 
+                icon: "fa-handshake",
+                whyWake: "Solo despierta la Noche 1. Todos los masones abren los ojos simultáneamente para reconocerse como aliados de absoluta confianza."
+            },
+            { 
+                id: "LYCAN", 
+                titleEn: "LYCAN", 
+                titleEs: "LICÁNTROPO", 
+                team: "PUEBLO", 
+                desc: "Eres una aldeana (Villager), pero al vidente le pareces un hombre lobo.", 
+                wakeNight1: 0, 
+                wakeNight2: 0, 
+                icon: "fa-mask",
+                whyWake: "No despierta de noche. Es del equipo del pueblo, pero si la Vidente lo investiga, el moderador le responderá que es un Hombre Lobo."
+            },
+            { 
+                id: "TOUGH_GUY", 
+                titleEn: "TOUGH GUY", 
+                titleEs: "DURETE", 
+                team: "PUEBLO", 
+                desc: "Si los hombres lobo intentan eliminarte, no quedas eliminado hasta la noche siguiente.", 
+                wakeNight1: 5, 
+                wakeNight2: 0, 
+                icon: "fa-dumbbell",
+                whyWake: "Despierta la Noche 1 para identificarse ante el moderador. Si los hombres lobo lo atacan, resiste un día entero y muere recién la noche siguiente."
+            },
+            { 
+                id: "DISEASED", 
+                titleEn: "DISEASED", 
+                titleEs: "APESTADO", 
+                team: "PUEBLO", 
+                desc: "Si eres eliminado por los hombres lobo, ellos no podrán eliminar a nadie la noche siguiente.", 
+                wakeNight1: 0, 
+                wakeNight2: 0, 
+                icon: "fa-biohazard",
+                whyWake: "No despierta. Si los lobos se lo comen, enferman y no pueden devorar a nadie la noche siguiente."
+            },
+            { 
+                id: "DRUNK", 
+                titleEn: "DRUNK", 
+                titleEs: "BORRACHO", 
+                team: "PUEBLO", 
+                desc: "Eres un aldeano hasta la tercera noche, momento en el que recuperas la sobriedad y descubres tu verdadero rol.", 
+                wakeNight1: 0, 
+                wakeNight2: 95, 
+                icon: "fa-beer-mug-empty",
+                whyWake: "Despierta únicamente en la Noche 3. El moderador le toca el hombro en secreto y le muestra la carta de su rol real asignado."
+            },
+            { 
+                id: "CURSED", 
+                titleEn: "CURSED", 
+                titleEs: "MALDITO", 
+                team: "PUEBLO", 
+                desc: "Formas parte del equipo de la aldea, a menos que seas el objetivo de los hombres lobo para ser eliminado; en ese momento, te conviertes en un hombre lobo.", 
+                wakeNight1: 0, 
+                wakeNight2: 0, 
+                icon: "fa-skull-crossbones",
+                whyWake: "Empieza como aldeano. Si los lobos lo atacan, no muere: se convierte en Hombre Lobo inmediatamente (el moderador le notificará en secreto)."
+            },
+            { 
+                id: "DOPPELGANGER", 
+                titleEn: "DOPPLEGANGER", 
+                titleEs: "DOPPELGÄNGER", 
+                team: "PUEBLO", 
+                desc: "La primera noche, elige un jugador. Cuando ese jugador sea eliminado, tú asumirás ese rol.", 
+                wakeNight1: 10, 
+                wakeNight2: 0, 
+                icon: "fa-clone",
+                whyWake: "Despierta la Noche 1 para elegir un objetivo. Si ese objetivo muere más adelante, el Doppelgänger hereda su rol y habilidades."
+            },
+            { 
+                id: "GHOST", 
+                titleEn: "GHOST", 
+                titleEs: "FANTASMA", 
+                team: "PUEBLO", 
+                desc: "La primera noche, quedas eliminado. Comunícate con los jugadores mediante letras individuales cada día.", 
+                wakeNight1: 1, 
+                wakeNight2: 0, 
+                icon: "fa-ghost",
+                whyWake: "Despierta la Noche 1 y muere de inmediato. Escribe un mensaje de 10 letras para enviar una letra cada mañana como pista."
+            },
+            { 
+                id: "REVEALER", 
+                titleEn: "REVEALER", 
+                titleEs: "REVELADOR", 
+                team: "PUEBLO", 
+                desc: "Cada noche puedes señalar a un jugador. Si ese jugador es un hombre lobo, queda eliminado. Si no lo es, tú quedas eliminado.", 
+                wakeNight1: 82, 
+                wakeNight2: 62, 
+                icon: "fa-sun",
+                whyWake: "Despierta para arriesgar un disparo nocturno: si acierta un hombre lobo lo elimina; si se equivoca, muere el Revelador."
+            },
+            { 
+                id: "MENTALIS", 
+                titleEn: "MENTALIS", 
+                titleEs: "MENTALISTA", 
+                team: "PUEBLO", 
+                desc: "Cada noche puedes señalar a dos jugadores, y se te indica si dichos jugadores pertenecen al mismo equipo o no.", 
+                wakeNight1: 73, 
+                wakeNight2: 44, 
+                icon: "fa-brain",
+                whyWake: "Despierta para señalar a 2 jugadores. El moderador le indica con gestos si ambos están en el mismo equipo o en bando distinto."
+            },
+            { 
+                id: "MAD_BOMBER", 
+                titleEn: "MAD BOMBER", 
+                titleEs: "BOMBERO LOCO", 
+                team: "PUEBLO", 
+                desc: "Si quedas eliminado, los jugadores situados inmediatamente a tu izquierda y a tu derecha también quedan eliminados.", 
+                wakeNight1: 0, 
+                wakeNight2: 0, 
+                icon: "fa-bomb",
+                whyWake: "Habilidad pasiva explosiva al morir. Al quedar eliminado, detona matando también a sus vecinos físicos inmediatos."
+            },
+            { 
+                id: "VILLAGE_IDIOT", 
+                titleEn: "VILLAGE IDIOT", 
+                titleEs: "IDIOTA DEL PUEBLO", 
+                team: "PUEBLO", 
+                desc: "Siempre votas para que los jugadores sean eliminados", 
+                wakeNight1: 0, 
+                wakeNight2: 0, 
+                icon: "fa-face-rolling-eyes",
+                whyWake: "No despierta. Sus votos siempre se contabilizan automáticamente a favor de ejecutar al acusado."
+            },
+            { 
+                id: "CUPID", 
+                titleEn: "CUPID", 
+                titleEs: "CÚPIDO", 
+                team: "PUEBLO", 
+                desc: "La primera noche, elige a dos jugadores para que queden vinculados entre sí. Si uno de ellos es eliminado, el otro también queda eliminado", 
+                wakeNight1: 20, 
+                wakeNight2: 0, 
+                icon: "fa-heart",
+                whyWake: "Solo despierta la Noche 1. Elige a 2 Enamorados. El moderador despierta a ambos tocándoles el hombro para que se conozcan."
+            },
+
+            // HOMBRES LOBO
+            { 
+                id: "WEREWOLF", 
+                titleEn: "WEREWOLF", 
+                titleEs: "HOMBRE LOBO", 
+                team: "LOBO", 
+                desc: "Cada noche, despierta junto a los otros hombres lobo y elige a un jugador para eliminar.", 
+                wakeNight1: 50, 
+                wakeNight2: 20, 
+                icon: "fa-wolf-pack-battalion",
+                whyWake: "Se despiertan en manada cada noche. Se reconocen entre sí y deben ponerse de acuerdo en silencio para señalar al jugador que van a devorar."
+            },
+            { 
+                id: "SORCERESS", 
+                titleEn: "SORCERESS", 
+                titleEs: "HECHICERA", 
+                team: "LOBO", 
+                desc: "Cada noche, busca al Vidente. Formas parte del equipo de los hombres lobo.", 
+                wakeNight1: 45, 
+                wakeNight2: 25, 
+                icon: "fa-hand-sparkles",
+                whyWake: "Despierta sola para buscar a la Vidente. Si señala a la Vidente, el moderador le responderá con un pulgar arriba. Apoya al equipo lobo."
+            },
+            { 
+                id: "MINION", 
+                titleEn: "MINION", 
+                titleEs: "ESBIRRO", 
+                team: "LOBO", 
+                desc: "Sabes quiénes son los hombres lobo, pero no te despiertas con ellos por la noche.", 
+                wakeNight1: 40, 
+                wakeNight2: 0, 
+                icon: "fa-user-ninja",
+                whyWake: "Despierta únicamente la Noche 1 para que el moderador le señale quiénes son los Hombres Lobo. No se despierta con la manada."
+            },
+            { 
+                id: "WOLF_CUB", 
+                titleEn: "WOLF CUB", 
+                titleEs: "CACHORRO DE LOBO", 
+                team: "LOBO", 
+                desc: "Cada noche, despierta con los hombres lobo. Si eres eliminado, los hombres lobo eliminan a dos jugadores la noche siguiente.", 
+                wakeNight1: 50, 
+                wakeNight2: 20, 
+                icon: "fa-dog",
+                whyWake: "Despierta junto a la manada. Si el Cachorro muere, la noche siguiente los Hombres Lobo cobran venganza seleccionando a 2 víctimas."
+            },
+            { 
+                id: "ALPHA_WOLF", 
+                titleEn: "ALPHA WOLF", 
+                titleEs: "LOBO ALFA", 
+                team: "LOBO", 
+                desc: "Una vez por partida, tras la eliminación de un hombre lobo durante el día, puedes convertir al objetivo del hombre lobo en un hombre lobo en lugar de eliminarlo.", 
+                wakeNight1: 50, 
+                wakeNight2: 20, 
+                icon: "fa-paw",
+                whyWake: "Despierta con los lobos. Una vez por juego puede infectar a la víctima nocturna para convertirla en Hombre Lobo en vez de matarla."
+            },
+            { 
+                id: "LONE_WOLF", 
+                titleEn: "LONE WOLF", 
+                titleEs: "LOBO SOLITARIO", 
+                team: "LOBO", 
+                desc: "Cada noche, despierta junto a los otros hombres lobo. Solo ganas si eres el último jugador en la partida.", 
+                wakeNight1: 50, 
+                wakeNight2: 20, 
+                icon: "fa-moon",
+                whyWake: "Despierta con la manada a matar, pero su condición de victoria es traicionar a todos y ser el único sobreviviente en la mesa."
+            },
+
+            // VAMPIROS
+            { 
+                id: "VAMPIRE", 
+                titleEn: "VAMPIRE", 
+                titleEs: "VAMPIRO", 
+                team: "VAMPIRO", 
+                desc: "Cada noche, elige a un jugador. Ese jugador queda eliminado cuando, al día siguiente, alguien recibe su segunda acusación.", 
+                wakeNight1: 60, 
+                wakeNight2: 30, 
+                icon: "fa-spaghetti-monster-flying",
+                whyWake: "Despierta en bando independiente. Señala a un objetivo cuya muerte se activará al día siguiente cuando ocurra la segunda acusación en el debate."
+            },
+
+            // INDEPENDIENTES
+            { 
+                id: "TANNER", 
+                titleEn: "TANNER", 
+                titleEs: "CURTIDOR", 
+                team: "INDEPENDIENTE", 
+                desc: "Odias tu trabajo y tu vida. Ganas si eres eliminado.", 
+                wakeNight1: 0, 
+                wakeNight2: 0, 
+                icon: "fa-skull",
+                whyWake: "No despierta de noche. Su único objetivo suicida es actuar sospechoso para lograr que la aldea lo ejecute en la votación diurna."
+            },
+            { 
+                id: "HOODLUM", 
+                titleEn: "HOODLUM", 
+                titleEs: "MATÓN", 
+                team: "INDEPENDIENTE", 
+                desc: "Elige a 2 jugadores durante la primera noche. Para ganar, ellos deben ser eliminados y tú debes seguir en la partida al finalizar el juego.", 
+                wakeNight1: 25, 
+                wakeNight2: 0, 
+                icon: "fa-user-secret",
+                whyWake: "Despierta solo la Noche 1. Señala a 2 enemigos personales. Gana si ambos mueren y él llega con vida al final de la partida."
+            },
+            { 
+                id: "CULT_LEADER", 
+                titleEn: "CULT LEADER", 
+                titleEs: "LÍDER DEL CULTO", 
+                team: "INDEPENDIENTE", 
+                desc: "Cada noche, elige a un jugador para que se una a tu secta. Si todos los jugadores forman parte de tu secta, ganas.", 
+                wakeNight1: 48, 
+                wakeNight2: 15, 
+                icon: "fa-fire-flame-curved",
+                whyWake: "Despierta cada noche para sumar a un participante a su culto. Si en algún momento todos los vivos pertenecen a su secta, gana la partida."
+            }
+        ];
+
+        // --- GENERADOR DE EFECTOS DE SONIDO SINTETIZADOS ---
+        const playSoundEffect = (type) => {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                if (type === 'bell') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(293.66, ctx.currentTime + 1.2);
+                    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 1.2);
+                } else if (type === 'gong') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(110, ctx.currentTime);
+                    gain.gain.setValueAtTime(0.5, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 2.0);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 2.0);
+                } else if (type === 'click') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(800, ctx.currentTime);
+                    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.05);
+                } else if (type === 'warning') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(440, ctx.currentTime);
+                    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.15);
+                    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.4);
+                }
+            } catch(e) {
+                // AudioContext initialized after user gesture
+            }
+        };
+
+        function App() {
+            // NAVEGACIÓN: 'setup' | 'night' | 'day' | 'grimoire'
+            const [activeTab, setActiveTab] = useState('setup');
+
+            // CONFIGURACIÓN DE MESA
+            const [numPlayers, setNumPlayers] = useState(8);
+            const [enableGhostShield, setEnableGhostShield] = useState(true);
+            const [playerList, setPlayerList] = useState([
+                { id: "1", name: "Carlos", roleId: "WEREWOLF" },
+                { id: "2", name: "Sofía", roleId: "WEREWOLF" },
+                { id: "3", name: "Lucía", roleId: "SEER" },
+                { id: "4", name: "Mateo", roleId: "BODYGUARD" },
+                { id: "5", name: "Elena", roleId: "WITCH" },
+                { id: "6", name: "Diego", roleId: "SPELLCASTER" },
+                { id: "7", name: "Martín", roleId: "VILLAGER" },
+                { id: "8", name: "Valentina", roleId: "VILLAGER" }
+            ]);
+
+            // ESTADO DE JUEGO
+            const [gamePhase, setGamePhase] = useState('SETUP');
+            const [nightNumber, setNightNumber] = useState(1);
+            const [dayNumber, setDayNumber] = useState(1);
+
+            // JUGADORES Y ESTADOS DINÁMICOS
+            const [gameStatePlayers, setGameStatePlayers] = useState([]);
+            const [werewolvesSick, setWerewolvesSick] = useState(false);
+            const [silencedPlayerId, setSilencedPlayerId] = useState(null);
+            const [expelledPlayerId, setExpelledPlayerId] = useState(null);
+            const [ghostShieldedPlayerId, setGhostShieldedPlayerId] = useState(null);
+
+            // GUÍA NOCTURNA PASO A PASO
+            const [nightSteps, setNightSteps] = useState([]);
+            const [currentStepIdx, setCurrentStepIdx] = useState(0);
+            const [nightActions, setNightActions] = useState({});
+            const [morningRecap, setMorningRecap] = useState([]);
+
+            // TEMPORIZADOR DIURNO
+            const [timerSeconds, setTimerSeconds] = useState(240);
+            const [timerActive, setTimerActive] = useState(false);
+
+            // LOG DE EVENTOS
+            const [eventLog, setEventLog] = useState([]);
+
+            const addLog = (text) => {
+                const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                setEventLog(prev => [{ id: Date.now() + Math.random(), time: timeStr, text }, ...prev]);
+            };
+
+            // Ajustar número de jugadores
+            const handleNumPlayersChange = (val) => {
+                const count = Math.max(4, Math.min(35, val));
+                setNumPlayers(count);
+                setPlayerList(prev => {
+                    if (prev.length < count) {
+                        const added = [];
+                        for (let i = prev.length + 1; i <= count; i++) {
+                            added.push({ id: String(i), name: `Jugador ${i}`, roleId: "VILLAGER" });
+                        }
+                        return [...prev, ...added];
+                    } else {
+                        return prev.slice(0, count);
+                    }
+                });
+            };
+
+            const updatePlayerName = (idx, name) => {
+                setPlayerList(prev => {
+                    const copy = [...prev];
+                    copy[idx] = { ...copy[idx], name };
+                    return copy;
+                });
+            };
+
+            const updatePlayerRole = (idx, roleId) => {
+                setPlayerList(prev => {
+                    const copy = [...prev];
+                    copy[idx] = { ...copy[idx], roleId };
+                    return copy;
+                });
+            };
+
+            // Cargar Ejemplo Rápido de 10 Jugadores
+            const loadExampleGame = () => {
+                const example = [
+                    { id: "1", name: "Gonzalo", roleId: "WEREWOLF" },
+                    { id: "2", name: "Camila", roleId: "WEREWOLF" },
+                    { id: "3", name: "Ignacio", roleId: "SEER" },
+                    { id: "4", name: "Mariana", roleId: "BODYGUARD" },
+                    { id: "5", name: "Joaquín", roleId: "WITCH" },
+                    { id: "6", name: "Paula", roleId: "SPELLCASTER" },
+                    { id: "7", name: "Rodrigo", roleId: "OLD_HAG" },
+                    { id: "8", name: "Federico", roleId: "VILLAGER" },
+                    { id: "9", name: "Agustina", roleId: "VILLAGER" },
+                    { id: "10", name: "Santiago", roleId: "VILLAGER" }
+                ];
+                setNumPlayers(10);
+                setPlayerList(example);
+                addLog("📋 Ejemplo de partida cargado con 10 jugadores.");
+            };
+
+            // Repartir roles aleatoriamente
+            const shuffleRoles = () => {
+                let pool = ["WEREWOLF", "WEREWOLF", "SEER", "BODYGUARD", "WITCH", "SPELLCASTER"];
+                while (pool.length < playerList.length) {
+                    pool.push("VILLAGER");
+                }
+                pool = pool.sort(() => Math.random() - 0.5);
+
+                setPlayerList(prev => prev.map((p, i) => ({
+                    ...p,
+                    roleId: pool[i] || "VILLAGER"
+                })));
+                addLog("🎲 Roles repartidos aleatoriamente en la lista.");
+            };
+
+            // INICIAR PARTIDA
+            const startGame = () => {
+                playSoundEffect('gong');
+                const initial = playerList.map(p => ({
+                    ...p,
+                    alive: true,
+                    status: 'VIVO',
+                    isGhostShielded: false
+                }));
+
+                setGameStatePlayers(initial);
+                setGamePhase('NIGHT');
+                setNightNumber(1);
+                setDayNumber(1);
+                setEventLog([]);
+                addLog("📜 ¡Comienza la partida! Transición a la Noche 1.");
+
+                buildNightSequence(1, initial);
+                setActiveTab('night');
+            };
+
+            // CONSTRUIR SECUENCIA PASO A PASO
+            const buildNightSequence = (nNum, currentPlayers) => {
+                const nightField = nNum === 1 ? 'wakeNight1' : 'wakeNight2';
+                let steps = [];
+
+                // Paso 0: Dormir a todos
+                steps.push({
+                    id: "SLEEP_ALL",
+                    titleEn: "SLEEP ALL",
+                    titleEs: "DORMIR A LA ALDEA",
+                    playerName: "TODOS LOS JUGADORES",
+                    roleTitleEn: "VILLAGE",
+                    roleTitleEs: "ALDEA COMPLETA",
+                    script: "«La noche cae sobre la aldea. Todos los jugadores cierren los ojos y mantengan silencio absoluto.»",
+                    whyWake: "Anuncio de inicio de la fase nocturna para que toda la mesa cierre los ojos antes de empezar las llamadas individuales.",
+                    type: "INFO"
+                });
+
+                // Filtrar roles a despertar
+                let wakingRoles = MASTER_ROLES_DB.filter(r => {
+                    if (r[nightField] <= 0) return false;
+
+                    if (['WEREWOLF', 'ALPHA_WOLF', 'WOLF_CUB', 'LONE_WOLF'].includes(r.id)) {
+                        return currentPlayers.some(p => p.alive && ['WEREWOLF', 'ALPHA_WOLF', 'WOLF_CUB', 'LONE_WOLF'].includes(p.roleId));
+                    }
+                    if (r.id === 'VAMPIRE') {
+                        return currentPlayers.some(p => p.alive && p.roleId === 'VAMPIRE');
+                    }
+                    if (r.id === 'MASON') {
+                        return nNum === 1 && currentPlayers.some(p => p.roleId === 'MASON');
+                    }
+                    return currentPlayers.some(p => p.alive && p.roleId === r.id);
+                });
+
+                wakingRoles.sort((a, b) => a[nightField] - b[nightField]);
+
+                // Generar los pasos con separación anti-confusión
+                wakingRoles.forEach(roleDef => {
+                    const matched = currentPlayers.filter(p => p.alive && (
+                        p.roleId === roleDef.id || 
+                        (['WEREWOLF', 'ALPHA_WOLF', 'WOLF_CUB', 'LONE_WOLF'].includes(roleDef.id) && ['WEREWOLF', 'ALPHA_WOLF', 'WOLF_CUB', 'LONE_WOLF'].includes(p.roleId))
+                    ));
+
+                    const namesStr = matched.map(p => p.name).join(", ");
+
+                    if (['WEREWOLF', 'ALPHA_WOLF', 'WOLF_CUB', 'LONE_WOLF'].includes(roleDef.id)) {
+                        if (werewolvesSick) {
+                            steps.push({
+                                id: "WEREWOLF_SICK",
+                                titleEn: "WEREWOLVES (DISEASED)",
+                                titleEs: "HOMBRES LOBO (ENFERMOS)",
+                                playerName: namesStr,
+                                roleTitleEn: "WEREWOLVES",
+                                roleTitleEs: "HOMBRES LOBO",
+                                script: "«Hombres Lobo: Despierten... Están enfermos por devorar al Apestado la noche anterior. ESTA NOCHE NO PUEDEN ELIMINAR A NADIE. Vuelvan a dormir.»",
+                                whyWake: roleDef.whyWake,
+                                type: "INFO"
+                            });
+                        } else {
+                            steps.push({
+                                id: "WEREWOLF_KILL",
+                                titleEn: "WEREWOLVES / HOMBRES LOBO",
+                                titleEs: "HOMBRES LOBO",
+                                playerName: namesStr,
+                                roleTitleEn: "WEREWOLVES",
+                                roleTitleEs: "HOMBRES LOBO",
+                                script: "«Hombres Lobo: Despierten en silencio, pónganse de acuerdo y señalen a la persona que van a eliminar esta noche.»",
+                                whyWake: roleDef.whyWake,
+                                type: "ACTION_SELECT_SINGLE",
+                                actionKey: "WOLF_KILL"
+                            });
+                        }
+                    } else if (roleDef.id === 'CUPID' && nNum === 1) {
+                        steps.push({
+                            id: "CUPID_STEP",
+                            titleEn: "CUPID / CÚPIDO",
+                            titleEs: "CÚPIDO",
+                            playerName: namesStr,
+                            roleTitleEn: "CUPID",
+                            roleTitleEs: "CÚPIDO",
+                            script: "«Cúpido: Despierta. Señala a 2 jugadores para vincularlos entre sí. Cúpido se duerme. Enamorados despierten y reconózcanse.»",
+                            whyWake: roleDef.whyWake,
+                            type: "ACTION_SELECT_DOUBLE",
+                            actionKey: "LOVERS"
+                        });
+                    } else if (roleDef.id === 'BODYGUARD') {
+                        steps.push({
+                            id: "BODYGUARD_STEP",
+                            titleEn: "BODYGUARD / ESCOLTA",
+                            titleEs: "ESCOLTA",
+                            playerName: namesStr,
+                            roleTitleEn: "BODYGUARD",
+                            roleTitleEs: "ESCOLTA",
+                            script: "«Escolta: Despierta. Señala al jugador que protegerás esta noche contra la eliminación.»",
+                            whyWake: roleDef.whyWake,
+                            type: "ACTION_SELECT_SINGLE",
+                            actionKey: "BODYGUARD_TARGET"
+                        });
+                    } else if (roleDef.id === 'SEER' || roleDef.id === 'MYSTIC_SEER' || roleDef.id === 'AURA_SEER') {
+                        steps.push({
+                            id: `SEER_STEP_${roleDef.id}`,
+                            titleEn: `${roleDef.titleEn} / ${roleDef.titleEs}`,
+                            titleEs: roleDef.titleEs,
+                            playerName: namesStr,
+                            roleTitleEn: roleDef.titleEn,
+                            roleTitleEs: roleDef.titleEs,
+                            script: `«${roleDef.titleEs} (${roleDef.titleEn}): Despierta. Señala a un jugador para investigar su naturaleza. Te responderé con la seña correspondiente.»`,
+                            whyWake: roleDef.whyWake,
+                            type: "INFO"
+                        });
+                    } else if (roleDef.id === 'WITCH') {
+                        steps.push({
+                            id: "WITCH_STEP",
+                            titleEn: "WITCH / BRUJA",
+                            titleEs: "BRUJA",
+                            playerName: namesStr,
+                            roleTitleEn: "WITCH",
+                            roleTitleEs: "BRUJA",
+                            script: "«Bruja: Despierta. Te muestro la víctima elegida esta noche. ¿Deseas usar tu poción de curación o tu poción de veneno?»",
+                            whyWake: roleDef.whyWake,
+                            type: "ACTION_WITCH",
+                            actionKey: "WITCH_ACTIONS"
+                        });
+                    } else if (roleDef.id === 'SPELLCASTER') {
+                        steps.push({
+                            id: "SPELLCASTER_STEP",
+                            titleEn: "SPELLCASTER / LANZACONJUROS",
+                            titleEs: "LANZACONJUROS",
+                            playerName: namesStr,
+                            roleTitleEn: "SPELLCASTER",
+                            roleTitleEs: "LANZACONJUROS",
+                            script: "«Lanzaconjuros: Despierta. Señala al jugador que estará silenciado y no podrá hablar durante el día de mañana.»",
+                            whyWake: roleDef.whyWake,
+                            type: "ACTION_SELECT_SINGLE",
+                            actionKey: "SILENCE_TARGET"
+                        });
+                    } else if (roleDef.id === 'OLD_HAG') {
+                        steps.push({
+                            id: "OLD_HAG_STEP",
+                            titleEn: "OLD HAG / VIEJA BRUJA",
+                            titleEs: "VIEJA BRUJA",
+                            playerName: namesStr,
+                            roleTitleEn: "OLD HAG",
+                            roleTitleEs: "VIEJA BRUJA",
+                            script: "«Vieja Bruja: Despierta. Señala al jugador que deberá abandonar la aldea durante el día de mañana.»",
+                            whyWake: roleDef.whyWake,
+                            type: "ACTION_SELECT_SINGLE",
+                            actionKey: "EXPEL_TARGET"
+                        });
+                    } else {
+                        steps.push({
+                            id: `STEP_${roleDef.id}`,
+                            titleEn: `${roleDef.titleEn} / ${roleDef.titleEs}`,
+                            titleEs: roleDef.titleEs,
+                            playerName: namesStr,
+                            roleTitleEn: roleDef.titleEn,
+                            roleTitleEs: roleDef.titleEs,
+                            script: `«${roleDef.titleEs} (${roleDef.titleEn}): Despierta y realiza tu acción especial de noche. Puedes volver a dormir.»`,
+                            whyWake: roleDef.whyWake,
+                            type: "INFO"
+                        });
+                    }
+                });
+
+                // Paso Final: Despertar
+                steps.push({
+                    id: "WAKE_ALL",
+                    titleEn: "WAKE ALL",
+                    titleEs: "DESPERTAR A LA ALDEA",
+                    playerName: "TODOS LOS JUGADORES",
+                    roleTitleEn: "VILLAGE",
+                    roleTitleEs: "AMANECER",
+                    script: "«La noche ha terminado. ¡Todos abran los ojos! La aldea despierta para conocer lo sucedido.»",
+                    whyWake: "Concluye la fase nocturna. El moderador anuncia las muertes ocurridas o confirma si la noche transcurrió limpia sin caídos.",
+                    type: "FINISH_NIGHT"
+                });
+
+                setNightSteps(steps);
+                setCurrentStepIdx(0);
+                setNightActions({});
+            };
+
+            // CONCLUIR NOCHE E INICIAR DÍA
+            const processNightAndWakeDay = () => {
+                playSoundEffect('bell');
+                let newPlayers = [...gameStatePlayers];
+                let deaths = new Set();
+                let protections = new Set();
+
+                if (nightActions["BODYGUARD_TARGET"]) protections.add(nightActions["BODYGUARD_TARGET"]);
+                if (nightActions["WITCH_HEAL"]) protections.add(nightActions["WITCH_HEAL"]);
+
+                const wolfTarget = nightActions["WOLF_KILL"];
+                const witchKillTarget = nightActions["WITCH_KILL"];
+
+                if (wolfTarget) {
+                    const victim = newPlayers.find(p => p.id === wolfTarget);
+                    if (victim) {
+                        if (victim.roleId === 'DISEASED') {
+                            setWerewolvesSick(true);
+                            addLog("🦠 Hombres Lobo devoraron al Apestado: ¡Estarán enfermos la próxima noche!");
+                        }
+                        if (victim.roleId === 'CURSED') {
+                            victim.roleId = 'WEREWOLF';
+                            addLog(`🩸 ¡El Maldito (${victim.name}) fue atacado y se transformó en HOMBRE LOBO!`);
+                        } else if (!protections.has(victim.id)) {
+                            deaths.add(victim.id);
+                        } else {
+                            addLog(`🛡️ El ataque nocturno sobre ${victim.name} fue protegido con éxito.`);
+                        }
+                    }
+                }
+
+                if (witchKillTarget && !protections.has(witchKillTarget)) {
+                    deaths.add(witchKillTarget);
+                }
+
+                // Procesar muertes
+                newPlayers = newPlayers.map(p => {
+                    if (deaths.has(p.id)) {
+                        return { ...p, alive: false, status: 'MUERTO' };
+                    }
+                    return p;
+                });
+
+                setSilencedPlayerId(nightActions["SILENCE_TARGET"] || null);
+                setExpelledPlayerId(nightActions["EXPEL_TARGET"] || null);
+
+                setGameStatePlayers(newPlayers);
+                const deadTonight = newPlayers.filter(p => deaths.has(p.id));
+                setMorningRecap(deadTonight);
+
+                if (werewolvesSick) setWerewolvesSick(false);
+
+                setGamePhase('DAY');
+                setActiveTab('day');
+                setTimerSeconds(newPlayers.filter(p => p.alive).length * 30);
+                setTimerActive(false);
+
+                if (deadTonight.length === 0) {
+                    addLog(`🌅 Día ${dayNumber}: Noche limpia. ¡Nadie ha muerto durante la noche!`);
+                } else {
+                    addLog(`🌅 Día ${dayNumber}: Se confirmó la muerte de ${deadTonight.length} jugador(es).`);
+                }
+            };
+
+            // Otorgar Escudo Fantasma por mayoría de muertos
+            const grantGhostShield = (targetPlayerId) => {
+                playSoundEffect('gong');
+                const target = gameStatePlayers.find(p => p.id === targetPlayerId);
+                if (!target) return;
+
+                setGhostShieldedPlayerId(targetPlayerId);
+                addLog(`👻🛡️ ¡LOS FANTASMAS VOTARON POR MAYORÍA! Otorgan el Escudo Fantasma a ${target.name}. Queda protegido contra ejecuciones hoy.`);
+            };
+
+            // Ejecución Diurna por Votación
+            const executePlayer = (playerId) => {
+                playSoundEffect('bell');
+                if (playerId === ghostShieldedPlayerId) {
+                    addLog(`🛡️ ¡${gameStatePlayers.find(p=>p.id===playerId)?.name} TIENE EL ESCUDO FANTASMA! Se salva de la ejecución.`);
+                    return;
+                }
+
+                let newPlayers = [...gameStatePlayers];
+                const target = newPlayers.find(p => p.id === playerId);
+                if (!target) return;
+
+                if (target.roleId === 'PRINCE') {
+                    addLog(`👑 ¡${target.name} revela que es el PRÍNCIPE! Se salva automáticamente de la ejecución.`);
+                    return;
+                }
+
+                target.alive = false;
+                target.status = 'EJECUTADO';
+                setGameStatePlayers(newPlayers);
+                addLog(`⚖️ La aldea votó y ejecutó a ${target.name} (${MASTER_ROLES_DB.find(r=>r.id===target.roleId)?.titleEn}).`);
+            };
+
+            // AVANZAR MANUALMENTE A LA SIGUIENTE NOCHE
+            const advanceToNextNight = () => {
+                playSoundEffect('gong');
+                const nextN = nightNumber + 1;
+                setNightNumber(nextN);
+                setDayNumber(dayNumber + 1);
+                setGhostShieldedPlayerId(null);
+                setGamePhase('NIGHT');
+
+                buildNightSequence(nextN, gameStatePlayers);
+                setActiveTab('night');
+                addLog(`🌙 Transición manual a la Noche ${nextN}.`);
+            };
+
+            // Temporizador Diurno
+            useEffect(() => {
+                let timer = null;
+                if (timerActive && timerSeconds > 0) {
+                    timer = setInterval(() => {
+                        setTimerSeconds(s => s - 1);
+                    }, 1000);
+                } else if (timerSeconds === 0 && timerActive) {
+                    setTimerActive(false);
+                    playSoundEffect('warning');
+                    addLog("⏰ ¡El tiempo del debate diurno ha finalizado!");
+                }
+                return () => clearInterval(timer);
+            }, [timerActive, timerSeconds]);
+
+            const formatTime = (sec) => {
+                const m = Math.floor(sec / 60);
+                const s = sec % 60;
+                return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            };
+
+            return (
+                <div class="min-h-screen flex flex-col justify-between max-w-6xl mx-auto px-3 sm:px-4 py-4">
+                    {/* ENCABEZADO Y TABS */}
+                    <header class="bg-grim-card/95 border border-grim-border rounded-xl p-4 mb-4 flex flex-wrap items-center justify-between shadow-2xl">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg gold-glow">
+                                <i class="fa-solid fa-book-skull"></i>
+                            </div>
+                            <div>
+                                <h1 class="cinzel-font text-lg sm:text-2xl font-black text-amber-400 tracking-wider">EL GRIMORIO DEL MODERADOR</h1>
+                                <p class="text-xs text-slate-400">Ultimate Werewolf • Asistente Bilingüe de Presencial</p>
+                            </div>
+                        </div>
+
+                        {/* Estado Superior */}
+                        {gamePhase !== 'SETUP' && (
+                            <div class="flex items-center space-x-2 sm:space-x-3 my-2 sm:my-0 text-xs font-semibold">
+                                <span class="bg-grim-bg px-3 py-1.5 rounded-lg border border-grim-border">🌙 Noche <strong class="text-amber-400">{nightNumber}</strong></span>
+                                <span class="bg-grim-bg px-3 py-1.5 rounded-lg border border-grim-border">☀️ Día <strong class="text-amber-400">{dayNumber}</strong></span>
+                                <span class="bg-grim-bg px-3 py-1.5 rounded-lg border border-grim-border">💚 Vivos: <strong class="text-emerald-400">{gameStatePlayers.filter(p=>p.alive).length}</strong>/{gameStatePlayers.length}</span>
+                            </div>
+                        )}
+
+                        {/* Botones de Navegación de Pestañas */}
+                        <nav class="flex space-x-1 sm:space-x-2 w-full sm:w-auto justify-end mt-2 sm:mt-0">
+                            <button 
+                                onClick={() => setActiveTab('setup')}
+                                class={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1 ${activeTab === 'setup' ? 'bg-amber-500 text-slate-950 gold-glow' : 'bg-grim-bg text-slate-300 hover:bg-grim-border'}`}>
+                                <i class="fa-solid fa-sliders"></i>
+                                <span>Ajustes</span>
+                            </button>
+                            {gamePhase !== 'SETUP' && (
+                                <>
+                                    <button 
+                                        onClick={() => setActiveTab('night')}
+                                        class={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1 ${activeTab === 'night' ? 'bg-indigo-600 text-white purple-glow' : 'bg-grim-bg text-slate-300 hover:bg-grim-border'}`}>
+                                        <i class="fa-solid fa-moon"></i>
+                                        <span>Guía Noche</span>
+                                    </button>
+                                    <button 
+                                        onClick={() => setActiveTab('day')}
+                                        class={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1 ${activeTab === 'day' ? 'bg-amber-600 text-white gold-glow' : 'bg-grim-bg text-slate-300 hover:bg-grim-border'}`}>
+                                        <i class="fa-solid fa-sun"></i>
+                                        <span>Día & Votos</span>
+                                    </button>
+                                </>
+                            )}
+                            <button 
+                                onClick={() => setActiveTab('grimoire')}
+                                class={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1 ${activeTab === 'grimoire' ? 'bg-amber-500 text-slate-950 gold-glow' : 'bg-grim-bg text-slate-300 hover:bg-grim-border'}`}>
+                                <i class="fa-solid fa-chess-board"></i>
+                                <span>Grimorio</span>
+                            </button>
+                        </nav>
+                    </header>
+
+                    {/* VISTA PRINCIPAL */}
+                    <main class="flex-grow">
+                        {/* PESTAÑA 1: CONFIGURACIÓN DE MESA Y ROLES */}
+                        {activeTab === 'setup' && (
+                            <div class="space-y-6 max-w-4xl mx-auto">
+                                <div class="bg-grim-card border border-amber-500/30 rounded-xl p-5 space-y-4 gold-glow">
+                                    <div class="flex flex-wrap items-center justify-between gap-4 border-b border-grim-border pb-3">
+                                        <div>
+                                            <h2 class="cinzel-font text-lg font-bold text-amber-400">CONFIGURACIÓN DE JUGADORES Y ROLES (EN/ES)</h2>
+                                            <p class="text-xs text-slate-400">Ingresa los nombres de las personas en la mesa y asigna sus roles oficiales.</p>
+                                        </div>
+                                        <div class="flex items-center space-x-3 bg-grim-bg p-2 rounded-xl border border-grim-border">
+                                            <label class="text-xs font-bold text-slate-300">Cantidad de Jugadores:</label>
+                                            <input 
+                                                type="number" 
+                                                min="4" 
+                                                max="35" 
+                                                value={numPlayers}
+                                                onChange={(e) => handleNumPlayersChange(parseInt(e.target.value) || 4)}
+                                                class="w-16 bg-slate-800 border border-grim-border rounded-lg p-1 text-center font-black text-amber-400 text-sm"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Botones de Preajustes y Acciones Rápidas */}
+                                    <div class="flex flex-wrap items-center justify-between gap-2 bg-grim-bg p-3 rounded-xl border border-grim-border">
+                                        <div class="flex flex-wrap gap-2">
+                                            <button 
+                                                onClick={loadExampleGame}
+                                                class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-lg text-xs font-bold border border-grim-border">
+                                                📋 Cargar Ejemplo (10 Jugadores)
+                                            </button>
+                                            <button 
+                                                onClick={shuffleRoles}
+                                                class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold border border-grim-border">
+                                                🎲 Repartir Roles Aleatoriamente
+                                            </button>
+                                        </div>
+
+                                        {/* Switch Fantasmas Protectores */}
+                                        <div class="flex items-center space-x-2 bg-sky-950/40 px-3 py-1.5 rounded-lg border border-sky-800/40">
+                                            <i class="fa-solid fa-ghost text-sky-400 text-sm"></i>
+                                            <span class="text-xs font-bold text-sky-300">Fantasmas Protectores:</span>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={enableGhostShield} 
+                                                onChange={(e) => setEnableGhostShield(e.target.checked)}
+                                                class="w-4 h-4 accent-amber-500 cursor-pointer"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Lista de Jugadores */}
+                                    <div class="space-y-2">
+                                        <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider">Mesa de Jugadores ({playerList.length}):</label>
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-96 overflow-y-auto pr-1">
+                                            {playerList.map((player, idx) => {
+                                                const selectedRole = MASTER_ROLES_DB.find(r => r.id === player.roleId);
+                                                return (
+                                                    <div key={idx} class="p-2.5 bg-grim-bg border border-grim-border rounded-xl flex flex-col space-y-1.5">
+                                                        <div class="flex items-center space-x-2">
+                                                            <span class="text-xs font-black text-amber-400 w-6">#{idx + 1}</span>
+                                                            <input 
+                                                                type="text" 
+                                                                value={player.name}
+                                                                onChange={(e) => updatePlayerName(idx, e.target.value)}
+                                                                placeholder={`Jugador ${idx + 1}`}
+                                                                class="w-1/2 bg-slate-900 border border-grim-border rounded-lg p-1.5 text-xs font-semibold text-slate-100 focus:outline-none focus:border-amber-500"
+                                                            />
+                                                            <select 
+                                                                value={player.roleId}
+                                                                onChange={(e) => updatePlayerRole(idx, e.target.value)}
+                                                                class="w-1/2 bg-slate-900 border border-grim-border rounded-lg p-1.5 text-xs font-bold text-amber-300 focus:outline-none focus:border-amber-500">
+                                                                {MASTER_ROLES_DB.map(r => (
+                                                                    <option key={r.id} value={r.id}>{r.titleEn} / {r.titleEs}</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                        <div class="text-[11px] text-slate-400 italic px-1">
+                                                            «{selectedRole?.desc}»
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    <div class="pt-3 border-t border-grim-border flex justify-end">
+                                        <button 
+                                            onClick={startGame}
+                                            class="px-8 py-3 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black rounded-xl text-base shadow-xl gold-glow transition transform hover:scale-105">
+                                            <i class="fa-solid fa-play mr-2"></i>¡INICIAR PARTIDA CON ESTE GRIMORIO!
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* PESTAÑA 2: ASISTENTE NOCTURNO CON BILINGÜISMO Y PROTECCIÓN ANTI-CONFUSIÓN */}
+                        {activeTab === 'night' && nightSteps.length > 0 && (
+                            <div class="max-w-3xl mx-auto space-y-6">
+                                <div class="bg-grim-card border border-amber-500/40 rounded-xl p-6 space-y-5 shadow-2xl gold-glow">
+                                    {/* Indicador de Progreso */}
+                                    <div class="flex items-center justify-between border-b border-grim-border pb-3">
+                                        <span class="text-xs font-bold text-indigo-400 uppercase tracking-widest">
+                                            Paso {currentStepIdx + 1} de {nightSteps.length} • Noche {nightNumber}
+                                        </span>
+                                        <div class="flex space-x-1">
+                                            {nightSteps.map((_, idx) => (
+                                                <div key={idx} class={`w-2.5 h-2.5 rounded-full ${idx === currentStepIdx ? 'bg-amber-400 gold-glow' : idx < currentStepIdx ? 'bg-indigo-600' : 'bg-slate-800'}`}></div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* MÓDULO NOCTURNO */}
+                                    {(() => {
+                                        const step = nightSteps[currentStepIdx];
+                                        return (
+                                            <div class="space-y-4">
+                                                {/* SECCIÓN 1: PROCLAMACIÓN EN VOZ ALTA (PRIMERO - SIN NOMBRES REALES) */}
+                                                <div class="p-4 bg-gradient-to-r from-indigo-950 to-slate-900 border-2 border-amber-500/80 rounded-xl space-y-2 shadow-lg">
+                                                    <div class="flex items-center justify-between">
+                                                        <span class="text-xs font-black text-amber-400 uppercase tracking-widest">
+                                                            📣 PROCLAMACIÓN EN VOZ ALTA (LO QUE LEES A LA HABITACIÓN):
+                                                        </span>
+                                                        <span class="text-xs font-bold bg-amber-500/20 text-amber-300 px-2.5 py-0.5 rounded border border-amber-500/40">
+                                                            {step.roleTitleEn}
+                                                        </span>
+                                                    </div>
+                                                    <h2 class="cinzel-font text-2xl sm:text-3xl font-black text-slate-100">
+                                                        {step.roleTitleEn} <span class="text-amber-400">/ {step.roleTitleEs}</span>
+                                                    </h2>
+                                                    {/* Frase a Pronunciar en Voz Alta */}
+                                                    <div class="bg-slate-950 p-3.5 rounded-lg border border-amber-500/30 text-amber-200 text-sm sm:text-base font-semibold italic leading-relaxed">
+                                                        {step.script}
+                                                    </div>
+                                                </div>
+
+                                                {/* SECCIÓN 2: DATOS PRIVADOS DEL MODERADOR (DEBAJO - SEPARADO) */}
+                                                <div class="p-3.5 bg-slate-950 border border-slate-800 rounded-xl space-y-1">
+                                                    <div class="flex items-center space-x-2 text-rose-400 text-xs font-black uppercase tracking-wider">
+                                                        <i class="fa-solid fa-lock"></i>
+                                                        <span>MANTENER EN SECRETO - SOLO VISIBLE PARA EL MODERADOR:</span>
+                                                    </div>
+                                                    <div class="text-sm font-extrabold text-emerald-400 pl-5">
+                                                        👤 Jugador(es) asignado(s) en tu mesa: <span class="text-slate-100 underline underline-offset-2">{step.playerName}</span>
+                                                    </div>
+                                                </div>
+
+                                                {/* SECCIÓN 3: EXPLICACIÓN DE POR QUÉ DESPIERTA */}
+                                                <div class="p-3.5 bg-indigo-950/40 border border-indigo-800/50 rounded-xl space-y-1">
+                                                    <div class="flex items-center space-x-2 text-indigo-300 text-xs font-bold">
+                                                        <i class="fa-solid fa-lightbulb text-amber-400"></i>
+                                                        <span>💡 ¿Por qué se despierta este rol y qué debe hacer el moderador?</span>
+                                                    </div>
+                                                    <p class="text-xs text-slate-300 leading-relaxed pl-5">
+                                                        {step.whyWake}
+                                                    </p>
+                                                </div>
+
+                                                {/* Selectores de Acción Interactivas */}
+                                                {step.type === 'ACTION_SELECT_SINGLE' && (
+                                                    <div class="space-y-2 pt-2">
+                                                        <label class="block text-xs font-bold text-slate-300">Selecciona el jugador objetivo:</label>
+                                                        <select 
+                                                            value={nightActions[step.actionKey] || ""}
+                                                            onChange={(e) => setNightActions({ ...nightActions, [step.actionKey]: e.target.value })}
+                                                            class="w-full bg-grim-bg border border-grim-border rounded-lg p-2.5 text-sm font-bold text-slate-100 focus:outline-none focus:border-amber-500">
+                                                            <option value="">-- Ningún objetivo / Sin acción --</option>
+                                                            {gameStatePlayers.filter(p=>p.alive).map(p => (
+                                                                <option key={p.id} value={p.id}>{p.name} ({MASTER_ROLES_DB.find(r=>r.id===p.roleId)?.titleEn})</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                )}
+
+                                                {step.type === 'ACTION_SELECT_DOUBLE' && (
+                                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                                                        <div>
+                                                            <label class="block text-xs font-bold text-slate-300">Enamorado 1:</label>
+                                                            <select 
+                                                                value={nightActions[step.actionKey]?.[0] || ""}
+                                                                onChange={(e) => {
+                                                                    const curr = nightActions[step.actionKey] || [];
+                                                                    setNightActions({ ...nightActions, [step.actionKey]: [e.target.value, curr[1]] });
+                                                                }}
+                                                                class="w-full bg-grim-bg border border-grim-border rounded-lg p-2.5 text-sm font-bold text-slate-100">
+                                                                <option value="">-- Seleccionar --</option>
+                                                                {gameStatePlayers.map(p => (
+                                                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                        <div>
+                                                            <label class="block text-xs font-bold text-slate-300">Enamorado 2:</label>
+                                                            <select 
+                                                                value={nightActions[step.actionKey]?.[1] || ""}
+                                                                onChange={(e) => {
+                                                                    const curr = nightActions[step.actionKey] || [];
+                                                                    setNightActions({ ...nightActions, [step.actionKey]: [curr[0], e.target.value] });
+                                                                }}
+                                                                class="w-full bg-grim-bg border border-grim-border rounded-lg p-2.5 text-sm font-bold text-slate-100">
+                                                                <option value="">-- Seleccionar --</option>
+                                                                {gameStatePlayers.map(p => (
+                                                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {step.type === 'ACTION_WITCH' && (
+                                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                                                        <div>
+                                                            <label class="block text-xs font-bold text-emerald-400">Poción de Curación (Salvar):</label>
+                                                            <select 
+                                                                value={nightActions["WITCH_HEAL"] || ""}
+                                                                onChange={(e) => setNightActions({ ...nightActions, WITCH_HEAL: e.target.value })}
+                                                                class="w-full bg-grim-bg border border-emerald-900 rounded-lg p-2.5 text-sm font-bold text-slate-100">
+                                                                <option value="">-- No curar a nadie --</option>
+                                                                {gameStatePlayers.filter(p=>p.alive).map(p => (
+                                                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                        <div>
+                                                            <label class="block text-xs font-bold text-rose-400">Poción de Veneno (Eliminar):</label>
+                                                            <select 
+                                                                value={nightActions["WITCH_KILL"] || ""}
+                                                                onChange={(e) => setNightActions({ ...nightActions, WITCH_KILL: e.target.value })}
+                                                                class="w-full bg-grim-bg border border-rose-900 rounded-lg p-2.5 text-sm font-bold text-slate-100">
+                                                                <option value="">-- No matar a nadie --</option>
+                                                                {gameStatePlayers.filter(p=>p.alive).map(p => (
+                                                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Botones de Navegación del Asistente */}
+                                                <div class="flex items-center justify-between pt-4 border-t border-grim-border">
+                                                    <button 
+                                                        onClick={() => { playSoundEffect('click'); setCurrentStepIdx(Math.max(0, currentStepIdx - 1)); }}
+                                                        disabled={currentStepIdx === 0}
+                                                        class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-lg text-xs transition disabled:opacity-30">
+                                                        <i class="fa-solid fa-arrow-left mr-2"></i>Paso Anterior
+                                                    </button>
+
+                                                    {currentStepIdx < nightSteps.length - 1 ? (
+                                                        <button 
+                                                            onClick={() => { playSoundEffect('click'); setCurrentStepIdx(currentStepIdx + 1); }}
+                                                            class="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-sm transition gold-glow">
+                                                            Siguiente Paso <i class="fa-solid fa-arrow-right ml-2"></i>
+                                                        </button>
+                                                    ) : (
+                                                        <button 
+                                                            onClick={processNightAndWakeDay}
+                                                            class="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black rounded-lg text-sm shadow-xl transition transform hover:scale-105 gold-glow">
+                                                            <i class="fa-solid fa-sun mr-2"></i>¡CONCLUIR NOCHE E INICIAR DÍA!
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* PESTAÑA 3: CONTROL DE DÍA, TEMPORIZADOR Y FANTASMAS PROTECTORES */}
+                        {activeTab === 'day' && (
+                            <div class="space-y-6 max-w-4xl mx-auto">
+                                {/* Resumen del Amanecer */}
+                                <div class="bg-grim-card border border-amber-500/30 rounded-xl p-5 space-y-3 gold-glow">
+                                    <h2 class="cinzel-font text-base font-bold text-amber-400">AMANECER DE LA NOCHE {nightNumber}</h2>
+                                    {morningRecap.length === 0 ? (
+                                        <div class="p-3 bg-emerald-950/30 border border-emerald-800/40 rounded-lg text-emerald-300 font-bold text-xs text-center">
+                                            🎉 ¡Nadie ha muerto durante la noche! La aldea amanece intacta.
+                                        </div>
+                                    ) : (
+                                        <div class="space-y-2">
+                                            <p class="text-xs font-bold text-rose-400 uppercase">Fallecidos esta noche ({morningRecap.length}):</p>
+                                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                {morningRecap.map(p => {
+                                                    const r = MASTER_ROLES_DB.find(x=>x.id===p.roleId);
+                                                    return (
+                                                        <div key={p.id} class="p-2.5 bg-rose-950/30 border border-rose-800/50 rounded-lg flex items-center justify-between">
+                                                            <span class="font-bold text-slate-100 text-sm">{p.name}</span>
+                                                            <span class="text-xs font-bold px-2 py-0.5 rounded bg-rose-900 text-rose-200">
+                                                                {r?.titleEn} / {r?.titleEs}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Modificadores Diurnos */}
+                                    <div class="flex flex-wrap gap-2 pt-2">
+                                        {silencedPlayerId && (
+                                            <span class="px-3 py-1 bg-purple-950/40 border border-purple-800/50 rounded-lg text-xs text-purple-300 font-semibold">
+                                                🤫 <strong>Silenciado:</strong> {gameStatePlayers.find(p=>p.id===silencedPlayerId)?.name}
+                                            </span>
+                                        )}
+                                        {expelledPlayerId && (
+                                            <span class="px-3 py-1 bg-amber-950/40 border border-amber-800/50 rounded-lg text-xs text-amber-300 font-semibold">
+                                                🏚️ <strong>Exiliado:</strong> {gameStatePlayers.find(p=>p.id===expelledPlayerId)?.name}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Temporizador de Debate Diurno */}
+                                <div class="bg-grim-card border border-grim-border rounded-xl p-5 flex flex-wrap items-center justify-between gap-4">
+                                    <div>
+                                        <h3 class="cinzel-font text-sm font-bold text-amber-400">TEMPORIZADOR DE DEBATE DIURNO</h3>
+                                        <p class="text-xs text-slate-400">Gestiona la duración de la discusión antes de la votación.</p>
+                                    </div>
+                                    <div class="flex items-center space-x-4">
+                                        <span class="font-mono text-3xl font-black text-amber-400 tracking-wider bg-slate-950 px-4 py-2 rounded-xl border border-grim-border">
+                                            {formatTime(timerSeconds)}
+                                        </span>
+                                        <div class="flex space-x-2">
+                                            <button 
+                                                onClick={() => setTimerActive(!timerActive)}
+                                                class={`px-4 py-2 rounded-lg text-xs font-bold text-slate-950 transition ${timerActive ? 'bg-amber-500' : 'bg-emerald-500 hover:bg-emerald-400'}`}>
+                                                {timerActive ? 'Pausar' : 'Iniciar'}
+                                            </button>
+                                            <button 
+                                                onClick={() => { playSoundEffect('warning'); addLog("📢 El Moderador advierte: «¡Se hace tarde en la aldea!»"); }}
+                                                class="px-3 py-2 bg-rose-900 hover:bg-rose-800 text-rose-200 rounded-lg text-xs font-bold">
+                                                ⚠️ ¡Se Hace Tarde!
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Módulo de Fantasmas Protectores */}
+                                {enableGhostShield && (
+                                    <div class="bg-grim-card border border-sky-500/40 rounded-xl p-5 space-y-3 blue-glow">
+                                        <div class="flex items-center space-x-3">
+                                            <i class="fa-solid fa-ghost text-sky-400 text-2xl"></i>
+                                            <div>
+                                                <h3 class="cinzel-font text-base font-bold text-sky-300">VARIANTE: VOTO DE FANTASMAS PROTECTORES</h3>
+                                                <p class="text-xs text-slate-400">
+                                                    Los jugadores muertos ({gameStatePlayers.filter(p=>!p.alive).length}) deliberan e intentan sumar su mayoría para bendecir a un jugador vivo con el Escudo Fantasma.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div class="pt-2 flex flex-wrap items-center gap-3">
+                                            <select 
+                                                id="ghostShieldTargetSelect"
+                                                class="bg-grim-bg border border-sky-800 rounded-lg p-2 text-xs font-bold text-sky-200 focus:outline-none">
+                                                <option value="">-- Seleccionar jugador vivo --</option>
+                                                {gameStatePlayers.filter(p=>p.alive).map(p => (
+                                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                                ))}
+                                            </select>
+                                            <button 
+                                                onClick={() => {
+                                                    const sel = document.getElementById("ghostShieldTargetSelect").value;
+                                                    if (sel) grantGhostShield(sel);
+                                                }}
+                                                class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-lg text-xs">
+                                                🛡️ Registrar Voto de Mayoría de Muertos
+                                            </button>
+                                        </div>
+
+                                        {ghostShieldedPlayerId && (
+                                            <div class="p-2 bg-sky-950/60 border border-sky-700 rounded-lg text-xs font-bold text-sky-200">
+                                                ✨ Jugador protegido hoy por los fantasmas: {gameStatePlayers.find(p=>p.id===ghostShieldedPlayerId)?.name}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Ejecución Diurna por Votación */}
+                                <div class="bg-grim-card border border-grim-border rounded-xl p-5 space-y-3">
+                                    <h3 class="cinzel-font text-base font-bold text-amber-400">EJECUCIÓN DIURNA POR VOTACIÓN</h3>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-60 overflow-y-auto pr-1">
+                                        {gameStatePlayers.filter(p=>p.alive).map(p => {
+                                            const r = MASTER_ROLES_DB.find(x=>x.id===p.roleId);
+                                            return (
+                                                <button 
+                                                    key={p.id}
+                                                    onClick={() => executePlayer(p.id)}
+                                                    class="p-2.5 bg-grim-bg hover:bg-rose-950/40 border border-grim-border hover:border-rose-700/50 rounded-xl transition text-left flex items-center justify-between">
+                                                    <div>
+                                                        <span class="block font-bold text-xs text-slate-100">{p.name}</span>
+                                                        <span class="text-[11px] text-slate-400">{r?.titleEn} / {r?.titleEs}</span>
+                                                    </div>
+                                                    <i class="fa-solid fa-gavel text-slate-500"></i>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Transición Manual a la Noche */}
+                                <div class="pt-2 flex justify-end">
+                                    <button 
+                                        onClick={advanceToNextNight}
+                                        class="px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl text-base shadow-xl purple-glow transition transform hover:scale-105">
+                                        <i class="fa-solid fa-moon mr-2"></i>AVANZAR MANUALMENTE A LA NOCHE {nightNumber + 1}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* PESTAÑA 4: GRIMORIO COMPLETO Y LOGS */}
+                        {activeTab === 'grimoire' && (
+                            <div class="space-y-6">
+                                <div class="bg-grim-card border border-amber-500/30 rounded-xl p-5 space-y-4 gold-glow">
+                                    <h2 class="cinzel-font text-lg font-bold text-amber-400">GRIMORIO VIVO EN TIEMPO REAL</h2>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                                        {gameStatePlayers.map(p => {
+                                            const roleDef = MASTER_ROLES_DB.find(r=>r.id===p.roleId);
+                                            const isProtectedByGhost = p.id === ghostShieldedPlayerId;
+
+                                            return (
+                                                <div key={p.id} class={`p-3.5 rounded-xl border transition flex flex-col justify-between ${p.alive ? 'bg-grim-card border-grim-border' : 'bg-slate-950/60 border-slate-800 opacity-60'}`}>
+                                                    <div>
+                                                        <div class="flex items-center justify-between mb-1.5">
+                                                            <span class="font-bold text-sm text-slate-100">{p.name}</span>
+                                                            <span class={`text-[10px] px-2 py-0.5 rounded font-black ${p.alive ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-rose-950 text-rose-400 border border-rose-800'}`}>
+                                                                {p.alive ? 'VIVO' : 'MUERTO'}
+                                                            </span>
+                                                        </div>
+                                                        <div class="text-xs font-bold text-amber-400 mb-1">Rol: {roleDef?.titleEn} / {roleDef?.titleEs}</div>
+                                                        <div class="text-[11px] text-slate-500 mb-2">Bando: {roleDef?.team}</div>
+
+                                                        {isProtectedByGhost && (
+                                                            <span class="inline-block text-[10px] bg-sky-900/60 text-sky-200 px-2 py-0.5 rounded font-bold">👻 Escudo Fantasma</span>
+                                                        )}
+                                                    </div>
+
+                                                    <div class="pt-2 border-t border-grim-border flex justify-end">
+                                                        <button 
+                                                            onClick={() => {
+                                                                setGameStatePlayers(prev => prev.map(x => x.id === p.id ? { ...x, alive: !x.alive } : x));
+                                                            }}
+                                                            class={`px-2.5 py-1 rounded text-[11px] font-bold transition ${p.alive ? 'bg-rose-900 text-rose-200' : 'bg-emerald-900 text-emerald-200'}`}>
+                                                            {p.alive ? 'Marcar Muerto' : 'Revivir'}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Registro Completo de Eventos */}
+                                <div class="bg-grim-card border border-grim-border rounded-xl p-5 space-y-2">
+                                    <h3 class="cinzel-font text-sm font-bold text-amber-400 uppercase">HISTORIAL CRONOLÓGICO DE EVENTOS</h3>
+                                    <div class="bg-grim-bg p-3 rounded-xl border border-grim-border max-h-48 overflow-y-auto space-y-1 font-mono text-xs text-slate-300">
+                                        {eventLog.map(item => (
+                                            <div key={item.id} class="flex space-x-2">
+                                                <span class="text-amber-500 font-bold">[{item.time}]</span>
+                                                <span>{item.text}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </main>
+
+                    <footer class="mt-8 text-center text-xs text-slate-500 border-t border-grim-border/50 pt-4">
+                        El Grimorio del Moderador • Ultimate Werewolf Presencial
+                    </footer>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
